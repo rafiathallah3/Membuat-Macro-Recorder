@@ -1,4 +1,6 @@
 #Entah kenapa waktu file 'utama.py' terhapus terus.
+#UPDATE: Windows mengangap file ini sebuah virus HackTool:Python/Keylogger.B
+#Aku gk tau sejak kapan script ini bisa "crack" software lainnya
 from PyQt5 import QtCore, QtGui, QtWidgets
 from pynput.mouse import Button, Controller as mouseController, Listener as MouseListener
 from pynput.keyboard import Controller as keyboardController, Listener as KeyboardListener, Key, KeyCode
