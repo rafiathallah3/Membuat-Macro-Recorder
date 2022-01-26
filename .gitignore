@@ -4,5 +4,5 @@ __pycache__/mos.cpython-39.pyc
 __pycache__/keybod.cpython-39.pyc
 __pycache__/keyboard.cpython-39.pyc
 .vscode/settings.json
-test.py
-utama_v2.py
+ui/macro.ui
+ui/setting.ui

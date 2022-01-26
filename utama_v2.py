@@ -93,10 +93,9 @@ class Ui_WindowUtama(object):
             "Aksi": []
         }
 
-        self.Pause = False
-        self._MulaiRecorder = False
         self.WaktuMulaiRecorder = 0
         self.NamaAplikasi = "Macro Recorder - untitled"
+        self._MulaiRecorder = self._MulaiMacro = self.Pause = False
         self.Aplikasi = self.path = None
 
         self.Monitor = KeySamaMouse_Monitor()
@@ -131,7 +130,8 @@ class Ui_WindowUtama(object):
         self.MulaiRecorder = True
 
     def KlikTombolMulai(self):
-        ...
+        
+        win32gui.ShowWindow(self.Aplikasi, win32con.SW_MINIMIZE)
 
     def KlikTombolStop(self):
         self.MulaiRecorder = False
@@ -179,6 +179,7 @@ class Ui_WindowUtama(object):
         self.MainWindow.setObjectName("MainWindow")
         self.MainWindow.resize(497, 430)
         self.MainWindow.setMouseTracking(False)
+
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap("ui\\../icon/settings.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.MainWindow.setWindowIcon(icon)
@@ -340,7 +341,7 @@ class Ui_WindowUtama(object):
 
     def retranslateUi(self):
         _translate = QtCore.QCoreApplication.translate
-        self.MainWindow.setWindowTitle(_translate("MainWindow", "Macro Recorder"))
+        self.MainWindow.setWindowTitle(_translate("MainWindow", self.NamaAplikasi))
         
         item = self.tableWidget.horizontalHeaderItem(0)
         item.setText(_translate("MainWindow", "Aksi"))
@@ -366,7 +367,101 @@ class Ui_WindowUtama(object):
         self.TombolRecord.clicked.connect(self.KlikTombolRecord)
         self.TombolMulai.clicked.connect(self.KlikTombolMulai)
         self.TombolStop.clicked.connect(self.KlikTombolStop)
+        self.TombolSetting.clicked.connect(lambda _: UI_Setting().exec_())
 
+class UI_Setting(QtWidgets.QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setupUi()
+
+    def setupUi(self):
+        self.setObjectName("Dialog")
+        self.resize(400, 300)
+        self.setToolTip("")
+        self.setFixedSize(self.size())
+
+        self.formLayoutWidget = QtWidgets.QWidget(self)
+        self.formLayoutWidget.setGeometry(QtCore.QRect(70, 100, 261, 80))
+        self.formLayoutWidget.setObjectName("formLayoutWidget")
+        
+        self.formLayout = QtWidgets.QFormLayout(self.formLayoutWidget)
+        self.formLayout.setContentsMargins(0, 0, 0, 0)
+        self.formLayout.setObjectName("formLayout")
+        
+        self.label = QtWidgets.QLabel(self.formLayoutWidget)
+        self.label.setObjectName("label")
+        
+        self.formLayout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.label)
+        
+        self.TidakDiulang = QtWidgets.QRadioButton(self.formLayoutWidget)
+        self.TidakDiulang.setObjectName("TidakDiulang")
+        
+        self.formLayout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.TidakDiulang)
+        
+        self.SelaluDiulang = QtWidgets.QRadioButton(self.formLayoutWidget)
+        self.SelaluDiulang.setObjectName("SelaluDiulang")
+        
+        self.formLayout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.SelaluDiulang)
+        
+        self.formLayoutWidget_2 = QtWidgets.QWidget(self)
+        self.formLayoutWidget_2.setGeometry(QtCore.QRect(70, 20, 261, 80))
+        self.formLayoutWidget_2.setObjectName("formLayoutWidget_2")
+        
+        self.formLayout_2 = QtWidgets.QFormLayout(self.formLayoutWidget_2)
+        self.formLayout_2.setContentsMargins(0, 0, 0, 0)
+        self.formLayout_2.setObjectName("formLayout_2")
+        
+        self.label_2 = QtWidgets.QLabel(self.formLayoutWidget_2)
+        self.label_2.setObjectName("label_2")
+        
+        self.formLayout_2.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.label_2)
+        
+        self.MenggabaikanShortcut = QtWidgets.QCheckBox(self.formLayoutWidget_2)
+        self.MenggabaikanShortcut.setObjectName("MenggabaikanShortcut")
+        
+        self.formLayout_2.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.MenggabaikanShortcut)
+        
+        self.TopSaatRecord = QtWidgets.QCheckBox(self.formLayoutWidget_2)
+        self.TopSaatRecord.setObjectName("TopSaatRecord")
+        
+        self.formLayout_2.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.TopSaatRecord)
+        
+        self.TopMauUnpause = QtWidgets.QCheckBox(self.formLayoutWidget_2)
+        self.TopMauUnpause.setObjectName("TopMauUnpause")
+        
+        self.formLayout_2.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.TopMauUnpause)
+        
+        font = QtGui.QFont()
+        font.setPointSize(12)
+        self.pushButton = QtWidgets.QPushButton(self)
+        self.pushButton.setGeometry(QtCore.QRect(60, 181, 121, 51))
+        self.pushButton.setFont(font)
+        self.pushButton.setObjectName("pushButton")
+        
+        font = QtGui.QFont()
+        font.setPointSize(18)
+        self.lineEdit = QtWidgets.QLineEdit(self)
+        self.lineEdit.setGeometry(QtCore.QRect(220, 180, 113, 51))
+        self.lineEdit.setFont(font)
+        self.lineEdit.setAlignment(QtCore.Qt.AlignCenter)
+        self.lineEdit.setReadOnly(True)
+        self.lineEdit.setObjectName("lineEdit")
+
+        self.retranslateUi()
+        QtCore.QMetaObject.connectSlotsByName(self)
+
+    def retranslateUi(self):
+        _translate = QtCore.QCoreApplication.translate
+        self.setWindowTitle(_translate("Dialog", "Dialog"))
+        self.label.setText(_translate("Dialog", "Settingan loop"))
+        self.TidakDiulang.setText(_translate("Dialog", "Tidak diulang"))
+        self.SelaluDiulang.setText(_translate("Dialog", "Selalu diulang"))
+        self.label_2.setText(_translate("Dialog", "Settingan       "))
+        self.MenggabaikanShortcut.setText(_translate("Dialog", "Mengabaikan keyboard shortcuts"))
+        self.TopSaatRecord.setText(_translate("Dialog", "Always top saat mulai recorder"))
+        self.TopMauUnpause.setText(_translate("Dialog", "Always top saat mau unpause"))
+        self.pushButton.setText(_translate("Dialog", "Ganti Keybind"))
+        self.lineEdit.setText(_translate("Dialog", "F6"))
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
