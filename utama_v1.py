@@ -1,3 +1,4 @@
+"""
 #Entah kenapa waktu file 'utama.py' terhapus terus.
 #UPDATE: Windows mengangap file ini sebuah virus HackTool:Python/Keylogger.B
 #Aku gk tau sejak kapan script ini bisa "crack" software lainnya
@@ -7,14 +8,15 @@ from pynput.keyboard import Controller as keyboardController, Listener as Keyboa
 
 import threading, sys, time, enum, win32gui, win32con, json, os
 
-"""
+""
+    
     [21/12/2021 22:21]  reminder: membuat semua nama aksi recorder, Supaya bisa mengirim 'HasilRecorder' dan proses selanjutnya
     [25/12/2021 15:16]  Fitur yang susah dibuat / ada bug dalam pembuatan jadi harus dicancel: 
                             1. membuat keybind untuk pause, mulai, stop recorder
     [27/12/2021 21:21]  Yang harus dibikin:
                             1. mengganti HasilRecorder menjadi data table ui
                             2. Membuat selalu diulang saat memulai
-"""
+""
 
 class NamaAksiRecorder (enum.Enum):
     KLIK_KIRI_TAHAN = "Klik Kiri Tahan"
@@ -588,3 +590,4 @@ if __name__ == "__main__":
     MainWindow.show()
     win32gui.EnumWindows(ui.winEnumHandler, None)
     sys.exit(app.exec_())
+"""
