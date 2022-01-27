@@ -7,9 +7,12 @@ from pynput.mouse import Listener as MouseListener, Button, Controller as mouseC
     "komentar"
     [27/01/2022 19:07]  COK! KOK BISA TERHAPUS UTAMA VERSI 1 ?? 
                         emang aneh ni github
-                        cok ini "Merge bance master" artinya apaaa????? 
+                        cok ini "Merge bance master" artinya apaaan????? 
+                        cara menghidupkan projek utama versi 1 gua gimana ya?
+                        projek gua dulu, hilang :(
+    [27/01/2022 19:20]  Alhamdullilaah, untuuung aja gua ada buka browser github gua langsung ke projek utama_v1, alhamdullilaaaah
 
-    "INGFO"
+    "info"
     [17/01/2022 15:17]  Ini akan diperbarui soalnya ada apdet dan fitur lainnya yang mau ditambahin
                         "Kenapa tidak disatukan dengan utama v1?" Karena kodenya jadi berantakan
     [17/01/2022 18:59]  Aku gk tau kenapa tidak bisa `pip install pyqt5-tools` jadi harus di pause dulu
