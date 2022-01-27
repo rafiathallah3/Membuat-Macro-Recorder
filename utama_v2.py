@@ -7,6 +7,7 @@ from pynput.mouse import Listener as MouseListener, Button, Controller as mouseC
     "komentar"
     [27/01/2022 19:07]  COK! KOK BISA TERHAPUS UTAMA VERSI 1 ?? 
                         emang aneh ni github
+                        cok ini "Merge bance master" artinya apaaa????? 
 
     "INGFO"
     [17/01/2022 15:17]  Ini akan diperbarui soalnya ada apdet dan fitur lainnya yang mau ditambahin
