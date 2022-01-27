@@ -1,6 +1,6 @@
 import sys, time, win32gui, win32con, enum
 from PyQt5 import QtCore, QtGui, QtWidgets
-from pynput.keyboard import Listener as KeyboardListener, Key, Controller as keyboardController
+from pynput.keyboard import Listener as KeyboardListener, Key, Controller as keyboardController, KeyCode
 from pynput.mouse import Listener as MouseListener, Button, Controller as mouseController
 
 """
