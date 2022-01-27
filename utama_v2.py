@@ -4,6 +4,11 @@ from pynput.keyboard import Listener as KeyboardListener, Key, Controller as key
 from pynput.mouse import Listener as MouseListener, Button, Controller as mouseController
 
 """
+    "komentar"
+    [27/01/2022 19:07]  COK! KOK BISA TERHAPUS UTAMA VERSI 1 ?? 
+                        emang aneh ni github
+
+    "INGFO"
     [17/01/2022 15:17]  Ini akan diperbarui soalnya ada apdet dan fitur lainnya yang mau ditambahin
                         "Kenapa tidak disatukan dengan utama v1?" Karena kodenya jadi berantakan
     [17/01/2022 18:59]  Aku gk tau kenapa tidak bisa `pip install pyqt5-tools` jadi harus di pause dulu
