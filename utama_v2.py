@@ -1,5 +1,8 @@
-import sys, time, win32gui, win32con, enum
+from __future__ import annotations
+
+import sys, time, win32gui, win32con, enum, threading
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 from pynput.keyboard import Listener as KeyboardListener, Key, Controller as keyboardController, KeyCode
 from pynput.mouse import Listener as MouseListener, Button, Controller as mouseController
 
@@ -100,20 +103,20 @@ class Ui_WindowUtama(object):
         }
 
         self.HasilRecorder = {
-            "BolehRecordMouseGerakan": False,
+            "RecordGerakanMouse": False,
             "MenggabaikanShortcut": False,
             "TopSaatRecord": False,
             "TopMauUnpause": False,
             "SelaluDiulang": False, 
             "TidakDiulang": True,
             "TopSaatSelesaiRecorder": True,
-            "Aksi": [] #Dalam aksi: {"Aksi": Nama aksinya, "Nilai": Nilai yang berisi untuk MacroMulai, "Waktu": Waktu record macronya}
+            "Aksi": [] #Dalam aksi: {"Aksi": Nama aksinya, "keyValue": value yang berisi value macro, "keyName": nama yang berisi nama macro "Waktu": Waktu record macronya}
         }
 
-        self.WaktuMulaiRecorder = 0
+        self.WaktuMulaiRecorder = self.WaktuMulaiPause = 0
         self.NamaAplikasi = "Macro Recorder - untitled"
-        self._MulaiRecorder = self._MulaiMacro = self.Pause = False
-        self.Aplikasi = self.path = None
+        self._MulaiRecorder = self._MulaiMacro = self._Pause = False
+        self.Aplikasi = self.path = self.setting = None
 
         self.KeyboardKontoller = keyboardController()
         self.MouseKontoller = mouseController()
@@ -124,41 +127,89 @@ class Ui_WindowUtama(object):
         self.Monitor.startMonitor()
 
     #Klik Tombol Function
-    def KlikTombolMulai(self):
-        #Ini kayaknya tidak perlu
-        ...
-
     def KlikTombolStop(self):
         self.MulaiRecorder = False
         self.MulaiMacro = False
 
+    def KlikTombolSetting(self):
+        if self.MulaiRecorder or self.MulaiMacro: return
+        # "RecordGerakanMouse": False,
+        # "MenggabaikanShortcut": False,
+        # "TopSaatRecord": False,
+        # "TopMauUnpause": False,
+        # "SelaluDiulang": False, 
+        # "TidakDiulang": True,
+        # "TopSaatSelesaiRecorder": True,
+
+        self.setting = UI_Setting(self.settingTutupFunc)
+
+        i: QtWidgets.QCheckBox
+        for i in [
+                self.setting.RecordGerakanMouse,
+                self.setting.MenggabaikanShortcut,
+                self.setting.TopSaatRecord, 
+                self.setting.TopMauUnpause, 
+                self.setting.SelaluDiulang,
+                self.setting.TidakDiulang,
+                self.setting.TopSaatSelesaiRecorder
+            ]:
+            i.setChecked(self.HasilRecorder[i.objectName()])
+
+        self.setting.exec_()
+        
     #Keyboard mouse input function
     def TekanKeyFunc(self, key, tekan):
         if self.MulaiRecorder and not (key == self.Keybind["Record"]["KeyValue"] or key == self.Keybind["Mulai"]["KeyValue"] or key == self.Keybind["Pause"]["KeyValue"]):
-            self.TambahinAksi(NamaAksiRecorder.KETIK_TAHAN.value if tekan else NamaAksiRecorder.KETIK_LEPAS.value, key)
+            #kita dapatkan ordinary karena di pynput kalau kamu tekan tombol control dan alphabet key lainnya, maka ditunjukkan emot
+            self.TambahinAksi(
+                NamaAksiRecorder.KETIK_TAHAN.value if tekan else NamaAksiRecorder.KETIK_LEPAS.value,
+                key.vk if isinstance(key, KeyCode) else key.value.vk,
+                chr(key.vk).lower() if isinstance(key, KeyCode) else str(key)[4:]
+            )
             
         if key == self.Keybind["Record"]["KeyValue"] and tekan and not self.MulaiMacro:
-            print("Tekan")
             self.MulaiRecorder = not self.MulaiRecorder
+
+        if key == self.Keybind["Mulai"]["KeyValue"] and tekan and not self.MulaiRecorder and self.HasilRecorder["Aksi"]:
+            self.MulaiMacro = not self.MulaiMacro
+
+        if key == self.Keybind["Pause"]["KeyValue"] and tekan and self.MulaiRecorder:
+            self.Pause = not self.Pause
+
+        if self.setting and self.setting.GantiKeybind and tekan:
+            NamaKey = key.char.upper() if isinstance(key, KeyCode) else str(key)[4:].upper()
+            self.Keybind[self.setting.NamaGantiKeybind['jenis']]['Nama'] = NamaKey
+            self.Keybind[self.setting.NamaGantiKeybind['jenis']]['KeyValue'] = key
+            self.setting.BerikanKey(NamaKey)
 
     def KlikMosFunc(self, Hasil):
         if self.MulaiRecorder:
-            if Hasil["Kondisi"] == "Gerakan" and self.HasilRecorder["BolehRecordMouseGerakan"]:
+            if Hasil["Kondisi"] == "Gerakan" and self.HasilRecorder["RecordGerakanMouse"]:
                 self.TambahinAksi(NamaAksiRecorder.GERAKAN_MOUSE.value, Hasil["Pos"])
 
             if Hasil["Kondisi"] == "Klik":
-                if Hasil["Tekan"]: self.TambahinAksi(NamaAksiRecorder.KLIK_KIRI_TAHAN.value if Hasil["Tombol"] == Button.left else NamaAksiRecorder.KLIK_KANAN_TAHAN.value, Hasil["Pos"])
-                else: self.TambahinAksi(NamaAksiRecorder.KLIK_KIRI_LEPAS.value if Hasil["Tombol"] == Button.left else NamaAksiRecorder.KLIK_KANAN_LEPAS.value, Hasil["Pos"])
+                if Hasil["Tekan"]: self.TambahinAksi(
+                    NamaAksiRecorder.KLIK_KIRI_TAHAN.value if Hasil["Tombol"] == Button.left else NamaAksiRecorder.KLIK_KANAN_TAHAN.value,
+                    Hasil["Pos"], " ".join([str(x) for x in Hasil["Pos"]])
+                )
+                else: self.TambahinAksi(
+                    NamaAksiRecorder.KLIK_KIRI_LEPAS.value if Hasil["Tombol"] == Button.left else NamaAksiRecorder.KLIK_KANAN_LEPAS.value,
+                    Hasil["Pos"], " ".join([str(x) for x in Hasil["Pos"]])
+                )
 
             if Hasil["Kondisi"] == "Scroll":
-                self.TambahinAksi(NamaAksiRecorder.SCROLL_ATAS.value if Hasil["Scroll"][1] > 0 else NamaAksiRecorder.SCROLL_BAWAH.value, Hasil["Scroll"])
+                self.TambahinAksi(
+                    NamaAksiRecorder.SCROLL_ATAS.value if Hasil["Scroll"][1] > 0 else NamaAksiRecorder.SCROLL_BAWAH.value,
+                    Hasil["Scroll"], " ".join([str(x) for x in Hasil["Pos"]])
+                )
 
     #Function Lainnya
-    def TambahinAksi(self, nama, nilai):
-        if win32gui.GetWindowText(win32gui.GetForegroundWindow()) != self.NamaAplikasi:
+    def TambahinAksi(self, namaAksi, nilai, nama):
+        if win32gui.GetWindowText(win32gui.GetForegroundWindow()) != self.NamaAplikasi and not self.Pause:
             self.HasilRecorder["Aksi"].append({
-                "Aksi": nama,
-                "Nilai": nilai,
+                "Aksi": namaAksi,
+                "keyValue": nilai,
+                "keyName": nama if nama else nilai,
                 "Waktu": "{:.2f}".format(time.perf_counter() - self.WaktuMulaiRecorder)
             })
 
@@ -166,8 +217,50 @@ class Ui_WindowUtama(object):
         self.tableWidget.setRowCount(len(self.HasilRecorder["Aksi"]))
         for i,v in enumerate(self.HasilRecorder["Aksi"]):
             self.tableWidget.setItem(i, 0, QtWidgets.QTableWidgetItem(v["Aksi"]))
-            self.tableWidget.setItem(i, 1, QtWidgets.QTableWidgetItem(str(v["Nilai"])))
+            self.tableWidget.setItem(i, 1, QtWidgets.QTableWidgetItem(str(v["keyName"])))
             self.tableWidget.setItem(i, 2, QtWidgets.QTableWidgetItem(v["Waktu"]+" detik"))
+
+    def settingTutupFunc(self, setting: UI_Setting):
+        i: QtWidgets.QCheckBox
+        for i in [
+                setting.RecordGerakanMouse,
+                setting.MenggabaikanShortcut,
+                setting.TopSaatRecord, 
+                setting.TopMauUnpause, 
+                setting.SelaluDiulang,
+                setting.TidakDiulang,
+                setting.TopSaatSelesaiRecorder
+            ]:
+            self.HasilRecorder[i.objectName()] = i.isChecked()
+
+        self.setting = None
+
+    def ThreadMulaiMacro(self):
+        WaktuTombolMulai = time.perf_counter()
+        for i in self.HasilRecorder["Aksi"]:
+            if not self.MulaiMacro: break
+            WaktuDiTunggu = WaktuTombolMulai + float(i["Waktu"])
+
+            while time.perf_counter() < WaktuDiTunggu:...
+            else:
+                aksi = i["Aksi"]
+
+                if aksi == NamaAksiRecorder.KLIK_KIRI_TAHAN.value or aksi == NamaAksiRecorder.KLIK_KANAN_TAHAN.value:
+                    self.MouseKontoller.position = i["keyValue"]
+                    self.MouseKontoller.press(Button.left if aksi == NamaAksiRecorder.KLIK_KIRI_TAHAN.value else Button.right)
+                    
+                elif aksi == NamaAksiRecorder.KLIK_KIRI_LEPAS.value or aksi == NamaAksiRecorder.KLIK_KANAN_LEPAS.value:
+                    self.MouseKontoller.position = i["keyValue"]
+                    time.sleep(.01) #Ini di tunggu supaya... apa ya, susa juga dijelasin, coba aja di pake ke notepad terus tahan dan ke text lain terus ada warna background birunya, kalau tidak ada penunggu, background birunya tidak ada
+                    self.MouseKontoller.release(Button.left if aksi == NamaAksiRecorder.KLIK_KIRI_LEPAS.value else Button.right)
+
+                elif aksi == NamaAksiRecorder.SCROLL_ATAS.value or aksi == NamaAksiRecorder.SCROLL_BAWAH.value:
+                    self.MouseKontoller.scroll(i["keyValue"])
+                    
+                elif aksi == NamaAksiRecorder.KETIK_TAHAN.value:
+                    self.KeyboardKontoller.press(KeyCode(vk=i["keyValue"]))
+                elif aksi == NamaAksiRecorder.KETIK_LEPAS.value:
+                    self.KeyboardKontoller.release(KeyCode(vk=i["keyValue"]))
 
     #cuman property 
     @property
@@ -191,7 +284,10 @@ class Ui_WindowUtama(object):
                 # win32gui.ShowWindow(self.Aplikasi, win32con.SW_MINIMIZE)
         else:
             print("Stop")
-            self.Pause = val
+            self.Pause = False
+            self.TombolPause.setEnabled(False)
+            self.TombolMulai.clicked.disconnect()
+            self.TombolMulai.clicked.connect(lambda: setattr(self, "MulaiMacro", not self.MulaiMacro))
 
             self.TombolMulai.setEnabled(bool(self.HasilRecorder["Aksi"]))
             self.GantiTableUiDariHasilRecorder()
@@ -208,30 +304,32 @@ class Ui_WindowUtama(object):
 
         win32gui.ShowWindow(self.Aplikasi, win32con.SW_MINIMIZE if val else win32con.SW_MAXIMIZE)
         if val:
-            WaktuTombolMulai = time.perf_counter()
-            for i in self.HasilRecorder["Aksi"]:
-                WaktuDiTunggu = WaktuTombolMulai + float(i["Waktu"])
+            t = threading.Thread(target=self.ThreadMulaiMacro)
+            t.start()
 
-                while time.perf_counter() < WaktuDiTunggu:...
-                else:
-                    aksi = i["Aksi"]
+    @property
+    def Pause(self):
+        return self._Pause
 
-                    if aksi == NamaAksiRecorder.KLIK_KIRI_TAHAN.value or aksi == NamaAksiRecorder.KLIK_KANAN_TAHAN.value:
-                        self.MouseKontoller.position = tuple(int(j) for j in i["Nilai"].split(','))
-                        self.MouseKontoller.press(Button.left if aksi == NamaAksiRecorder.KLIK_KIRI_TAHAN.value else Button.right)
-                        
-                    elif aksi == NamaAksiRecorder.KLIK_KIRI_LEPAS.value or aksi == NamaAksiRecorder.KLIK_KANAN_LEPAS.value:
-                        self.MouseKontoller.position = tuple(int(j) for j in i["Nilai"].split(','))
-                        time.sleep(.01) #Ini di tunggu supaya... apa ya, susa juga dijelasin, coba aja di pake ke notepad terus tahan dan ke text lain terus ada warna background birunya, kalau tidak ada penunggu, background birunya tidak ada
-                        self.MouseKontoller.release(Button.left if aksi == NamaAksiRecorder.KLIK_KIRI_LEPAS.value else Button.right)
+    @Pause.setter
+    def Pause(self, val):
+        if val:
+            print("PAUSEE")
+            if self.MulaiRecorder and not self.Pause:
+                self.WaktuMulaiPause = time.perf_counter()
+        else:
+            print("Unpause")
+            self.WaktuMulaiRecorder = time.perf_counter() - (self.WaktuMulaiPause - self.WaktuMulaiRecorder)
+            win32gui.ShowWindow(self.Aplikasi, win32con.SW_MINIMIZE)
+        
+        self.TombolPause.setEnabled(not val)
+        self.TombolMulai.setEnabled(val)
+        self.TombolMulai.setToolTip("Unpause" if val else "Mulai hasil recorder")
 
-                    elif aksi == NamaAksiRecorder.SCROLL_ATAS.value or aksi == NamaAksiRecorder.SCROLL_BAWAH.value:
-                        self.MouseKontoller.scroll(*tuple(int(j) for j in i["Nilai"].split(',')))
-                        
-                    elif aksi == NamaAksiRecorder.KETIK_TAHAN.value:
-                        self.KeyboardKontoller.press(KeyCode(i["Nilai"]) if isinstance(i["Nilai"], int) else i["Nilai"])
-                    elif aksi == NamaAksiRecorder.KETIK_LEPAS.value:
-                        self.KeyboardKontoller.release(KeyCode(i["Nilai"]) if isinstance(i["Nilai"], int) else i["Nilai"])
+        self._Pause = val
+
+        self.TombolMulai.clicked.disconnect()
+        self.TombolMulai.clicked.connect(lambda: setattr(self, "Pause", False) if val else lambda: setattr(self, "MulaiMacro", True))
 
     #Setup ui
     def winEnumHandler(self, hwnd, ctx):
@@ -430,94 +528,135 @@ class Ui_WindowUtama(object):
 
         self.TombolRecord.clicked.connect(lambda: setattr(self, "MulaiRecorder", True))
         self.TombolMulai.clicked.connect(lambda: setattr(self, "MulaiMacro", True))
+        self.TombolPause.clicked.connect(lambda: setattr(self, "Pause", not self.Pause))
         self.TombolStop.clicked.connect(self.KlikTombolStop)
-        self.TombolSetting.clicked.connect(lambda: UI_Setting().exec_())
+        self.TombolSetting.clicked.connect(self.KlikTombolSetting)
 
 class UI_Setting(QtWidgets.QDialog):
-    def __init__(self):
+    def __init__(self, settingFunc):
         super().__init__()
+        self.settingFunc = settingFunc
+        
+        self.NamaGantiKeybind: dict = None
+        self.NamaKeybind = ""
+        self.GantiKeybind = False
+        
         self.setupUi()
+
+    def closeEvent(self, event):
+        self.settingFunc(self)
 
     def setupUi(self):
         self.setObjectName("Dialog")
         self.resize(400, 300)
         self.setToolTip("")
+
         self.formLayoutWidget = QtWidgets.QWidget(self)
         self.formLayoutWidget.setGeometry(QtCore.QRect(70, 110, 261, 71))
         self.formLayoutWidget.setObjectName("formLayoutWidget")
+        
         self.formLayout = QtWidgets.QFormLayout(self.formLayoutWidget)
         self.formLayout.setContentsMargins(0, 0, 0, 0)
         self.formLayout.setObjectName("formLayout")
+        
         self.label = QtWidgets.QLabel(self.formLayoutWidget)
         self.label.setObjectName("label")
+        
         self.formLayout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.label)
+        
         self.TidakDiulang = QtWidgets.QRadioButton(self.formLayoutWidget)
         self.TidakDiulang.setObjectName("TidakDiulang")
+        
         self.formLayout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.TidakDiulang)
+        
         self.SelaluDiulang = QtWidgets.QRadioButton(self.formLayoutWidget)
         self.SelaluDiulang.setObjectName("SelaluDiulang")
+        
         self.formLayout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.SelaluDiulang)
+        
         self.formLayoutWidget_2 = QtWidgets.QWidget(self)
-        self.formLayoutWidget_2.setGeometry(QtCore.QRect(70, 10, 261, 88))
+        self.formLayoutWidget_2.setGeometry(QtCore.QRect(70, 10, 261, 100))
         self.formLayoutWidget_2.setObjectName("formLayoutWidget_2")
+        
         self.formLayout_2 = QtWidgets.QFormLayout(self.formLayoutWidget_2)
         self.formLayout_2.setContentsMargins(0, 0, 0, 0)
         self.formLayout_2.setObjectName("formLayout_2")
+        
         self.label_2 = QtWidgets.QLabel(self.formLayoutWidget_2)
         self.label_2.setObjectName("label_2")
+        
         self.formLayout_2.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.label_2)
+        
         self.MenggabaikanShortcut = QtWidgets.QCheckBox(self.formLayoutWidget_2)
         self.MenggabaikanShortcut.setObjectName("MenggabaikanShortcut")
+        
         self.formLayout_2.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.MenggabaikanShortcut)
+        
         self.TopSaatRecord = QtWidgets.QCheckBox(self.formLayoutWidget_2)
         self.TopSaatRecord.setObjectName("TopSaatRecord")
+        
         self.formLayout_2.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.TopSaatRecord)
+        
         self.TopMauUnpause = QtWidgets.QCheckBox(self.formLayoutWidget_2)
         self.TopMauUnpause.setObjectName("TopMauUnpause")
+        
         self.formLayout_2.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.TopMauUnpause)
+        
+        self.TopSaatSelesaiRecorder = QtWidgets.QCheckBox(self.formLayoutWidget_2)
+        self.TopSaatSelesaiRecorder.setObjectName("TopSaatSelesaiRecorder")
+        
+        self.formLayout_2.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.TopSaatSelesaiRecorder)
+
         self.RecordGerakanMouse = QtWidgets.QCheckBox(self.formLayoutWidget_2)
         self.RecordGerakanMouse.setObjectName("RecordGerakanMouse")
-        self.formLayout_2.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.RecordGerakanMouse)
-        self.TombolGantiRecord = QtWidgets.QPushButton(self)
-        self.TombolGantiRecord.setGeometry(QtCore.QRect(70, 170, 141, 31))
+        
+        self.formLayout_2.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.RecordGerakanMouse)
+
         font = QtGui.QFont()
         font.setPointSize(8)
+        self.TombolGantiRecord = QtWidgets.QPushButton(self)
+        self.TombolGantiRecord.setGeometry(QtCore.QRect(70, 170, 141, 31))
         self.TombolGantiRecord.setFont(font)
         self.TombolGantiRecord.setObjectName("TombolGantiRecord")
-        self.labelKeybindRecord = QtWidgets.QLineEdit(self)
-        self.labelKeybindRecord.setGeometry(QtCore.QRect(260, 170, 61, 31))
+        
         font = QtGui.QFont()
         font.setPointSize(18)
+        self.labelKeybindRecord = QtWidgets.QLineEdit(self)
         self.labelKeybindRecord.setFont(font)
+        self.labelKeybindRecord.setGeometry(QtCore.QRect(260, 170, 61, 31))
         self.labelKeybindRecord.setAlignment(QtCore.Qt.AlignCenter)
         self.labelKeybindRecord.setReadOnly(True)
         self.labelKeybindRecord.setObjectName("labelKeybindRecord")
-        self.TombolGantiMulai = QtWidgets.QPushButton(self)
-        self.TombolGantiMulai.setGeometry(QtCore.QRect(70, 210, 141, 31))
+        
         font = QtGui.QFont()
         font.setPointSize(8)
+        self.TombolGantiMulai = QtWidgets.QPushButton(self)
+        self.TombolGantiMulai.setGeometry(QtCore.QRect(70, 210, 141, 31))
         self.TombolGantiMulai.setFont(font)
         self.TombolGantiMulai.setObjectName("TombolGantiMulai")
-        self.labelKeybindMulai = QtWidgets.QLineEdit(self)
-        self.labelKeybindMulai.setGeometry(QtCore.QRect(260, 210, 61, 31))
+        
         font = QtGui.QFont()
         font.setPointSize(18)
+        self.labelKeybindMulai = QtWidgets.QLineEdit(self)
+        self.labelKeybindMulai.setGeometry(QtCore.QRect(260, 210, 61, 31))
         self.labelKeybindMulai.setFont(font)
         self.labelKeybindMulai.setAlignment(QtCore.Qt.AlignCenter)
         self.labelKeybindMulai.setReadOnly(True)
         self.labelKeybindMulai.setObjectName("labelKeybindMulai")
-        self.labelKeybindPause = QtWidgets.QLineEdit(self)
-        self.labelKeybindPause.setGeometry(QtCore.QRect(260, 250, 61, 31))
+        
         font = QtGui.QFont()
         font.setPointSize(18)
+        self.labelKeybindPause = QtWidgets.QLineEdit(self)
+        self.labelKeybindPause.setGeometry(QtCore.QRect(260, 250, 61, 31))
         self.labelKeybindPause.setFont(font)
         self.labelKeybindPause.setAlignment(QtCore.Qt.AlignCenter)
         self.labelKeybindPause.setReadOnly(True)
         self.labelKeybindPause.setObjectName("labelKeybindPause")
-        self.TombolGantiPause = QtWidgets.QPushButton(self)
-        self.TombolGantiPause.setGeometry(QtCore.QRect(70, 250, 141, 31))
+        
         font = QtGui.QFont()
         font.setPointSize(8)
+        self.TombolGantiPause = QtWidgets.QPushButton(self)
+        self.TombolGantiPause.setGeometry(QtCore.QRect(70, 250, 141, 31))
         self.TombolGantiPause.setFont(font)
         self.TombolGantiPause.setObjectName("TombolGantiPause")
 
@@ -527,20 +666,39 @@ class UI_Setting(QtWidgets.QDialog):
     def retranslateUi(self):
         _translate = QtCore.QCoreApplication.translate
         self.setWindowTitle(_translate("Dialog", "Dialog"))
+        
         self.label.setText(_translate("Dialog", "Settingan loop"))
+        
         self.TidakDiulang.setText(_translate("Dialog", "Tidak diulang"))
         self.SelaluDiulang.setText(_translate("Dialog", "Selalu diulang"))
+        
         self.label_2.setText(_translate("Dialog", "Settingan       "))
+        
         self.MenggabaikanShortcut.setText(_translate("Dialog", "Mengabaikan keyboard shortcuts"))
         self.TopSaatRecord.setText(_translate("Dialog", "Always top saat mulai recorder"))
         self.TopMauUnpause.setText(_translate("Dialog", "Always top saat mau unpause"))
+        self.TopSaatSelesaiRecorder.setText(_translate("Dialog", "Always top saat selesai Recording"))
         self.RecordGerakanMouse.setText(_translate("Dialog", "Record gerakan mouse"))
+        
         self.TombolGantiRecord.setText(_translate("Dialog", "Ganti Keybind Record/Stop"))
-        self.labelKeybindRecord.setText(_translate("Dialog", "F6"))
         self.TombolGantiMulai.setText(_translate("Dialog", "Ganti Keybind Mulai/Stop"))
-        self.labelKeybindMulai.setText(_translate("Dialog", "F7"))
-        self.labelKeybindPause.setText(_translate("Dialog", "F8"))
         self.TombolGantiPause.setText(_translate("Dialog", "Keybind Pause/Unpause"))
+        
+        self.labelKeybindMulai.setText(_translate("Dialog", "F7"))
+        self.labelKeybindRecord.setText(_translate("Dialog", "F6"))
+        self.labelKeybindPause.setText(_translate("Dialog", "F8"))        
+        
+        self.TombolGantiMulai.clicked.connect(lambda: self.GantiKeybindFunc(self.labelKeybindMulai, "Mulai"))
+        self.TombolGantiRecord.clicked.connect(lambda: self.GantiKeybindFunc(self.labelKeybindRecord, "Record"))
+        self.TombolGantiPause.clicked.connect(lambda: self.GantiKeybindFunc(self.labelKeybindPause, "Pause"))
+
+    def GantiKeybindFunc(self, label: QtWidgets.QLineEdit, jenis: str):
+        self.NamaGantiKeybind = {"label": label, "jenis": jenis}
+        self.GantiKeybind = True
+
+    def BerikanKey(self, key):
+        self.NamaGantiKeybind['label'].setText(key)
+        self.GantiKeybind = False
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
@@ -549,4 +707,7 @@ if __name__ == "__main__":
     ui.setupUi()
     MainWindow.show()
     win32gui.EnumWindows(ui.winEnumHandler, None)
-    sys.exit(app.exec_())
+    try:
+        sys.exit(app.exec_())
+    except:
+        print("Ini supaya tidak ada terjadi error ketika sang pengguna applikasi menekan tombol close dari appnya")

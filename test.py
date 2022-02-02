@@ -3,27 +3,19 @@ import time
 
 keyboard = Controller()
 
-
-print(KeyCode(char='v').vk)
+print(KeyCode(vk=65).char)
 # Press and release space
-keyboard.press(KeyCode('<162>'))
-keyboard.press(KeyCode(char='a'))
-time.sleep(1)
-keyboard.release(KeyCode('<162>'))
-keyboard.release(KeyCode(char='a'))
-
-# Type a lower case A; this will work even if no key on the
-# physical keyboard is labelled 'A'
+# keyboard.press(KeyCode(vk=0, char='b'))
+# time.sleep(1)
+# keyboard.release(KeyCode(vk=0, char='b'))
 
 # from pynput.keyboard import Key, KeyCode, Listener
 
 # def on_press(key):
 #     try:
-#         print(KeyCode(char='<162>').char)
-#         print('alphanumeric key {0} pressed'.format(key.char))
+#         print('alphanumeric key {0} pressed'.format(key.vk))
 #     except AttributeError:
 #         print('special key {0} pressed'.format(key))
-#         print(key.value.char)
 
 # def on_release(key):
 #     print('{0} released'.format(key))
@@ -40,5 +32,7 @@ keyboard.release(KeyCode(char='a'))
 # # ...or, in a non-blocking fashion:
 # listener = Listener(
 #     on_press=on_press,
-#     on_release=on_release)
+#     on_release=on_release,
+#     suppress=True
+#     )
 # listener.start()
