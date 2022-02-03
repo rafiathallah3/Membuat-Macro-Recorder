@@ -1,9 +1,10 @@
-from pynput.keyboard import Key, Controller, KeyCode
-import time
 
-keyboard = Controller()
+# from pynput.keyboard import Key, Controller, KeyCode
+# import time
 
-print(KeyCode(vk=65).char)
+# keyboard = Controller()
+
+# print(KeyCode(vk=65).char)
 # Press and release space
 # keyboard.press(KeyCode(vk=0, char='b'))
 # time.sleep(1)
